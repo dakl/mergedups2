@@ -1,0 +1,64 @@
+#!/usr/bin/env python
+"""
+A tool to reduce sequencing error rate by merging PCR duplicates rather removing them
+
+It only works on paired end reads.
+"""
+import argparse
+import logging
+import sys
+import pysam
+from mergedups.readmerger import ReadMerger
+
+__author__ = 'dankle'
+
+def main():
+    opts=parse_cli()
+    setup_logging(opts.loglevel)
+
+    input_bam = pysam.AlignmentFile(opts.I, 'rb')
+    output_bam = pysam.AlignmentFile(opts.O, 'wb', template=input_bam)
+
+    readmerger = ReadMerger(input_bam, output_bam, opts.metrics_file,
+                            opts.fraction_agree, opts.max_qual, opts.reads_between_logs)
+
+    exit_code = readmerger.do_work()
+
+    input_bam.close()
+    output_bam.close()
+
+    return exit_code
+
+
+def parse_cli():
+    """
+    Parse command line argument
+    :return: a Namespace object from argparse.parse_args()
+    """
+    ap = argparse.ArgumentParser()
+    ap.add_argument('-I', help="input BAM file", action="store", required=False, default="/proj/b2010040/python/mergeduplicates/test_mergedups2.bam")
+    ap.add_argument('-O', help="output BAM file", action="store", required=False, default="-")
+    ap.add_argument('--metrics_file', '-x', help="metrics file", action="store", required=True)
+    ap.add_argument('--fraction_agree', action="store", help="If this fraction of reads agree on a base, use it.", default=0.75, type=float)
+    ap.add_argument('--max_qual', help="maximum base quality to use in output", action="store", default=45, type=int)
+    ap.add_argument('--reads_between_logs', help="number of reads between info log", action="store", default=1000000, type=int)
+    ap.add_argument("--loglevel", help="level of logging", default='INFO', type=str,
+                    choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
+
+    return ap.parse_args()
+
+def setup_logging(loglevel="INFO"):
+    """
+    Set up logging
+    :return:
+    """
+    numeric_level = getattr(logging, loglevel.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % loglevel)
+    logging.basicConfig(level=numeric_level,
+                        format='%(levelname)s %(asctime)s %(funcName)s - %(message)s')
+    logging.info("Started log with loglevel %(loglevel)s" % {"loglevel":loglevel})
+
+if __name__ == "__main__":
+    sys.exit(main())
+
