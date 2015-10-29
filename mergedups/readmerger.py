@@ -34,6 +34,10 @@ class ReadMerger(object):
         self.n_reads_traversed = 0
         self.last_n_reads_traversed = 0
         self.metrics = ReadMergerMetrics()
+        self.last_chr = None
+        self.last_pos = None
+        self.name_translation_table = {}
+        """ :type: dict[str,str] """
 
     def do_work(self):
         """
@@ -42,13 +46,17 @@ class ReadMerger(object):
         """
         self.start_time = datetime.now()
         self.last_time = self.start_time
-        last_chr, last_pos = None, None
         reads = {}
         """:type: dict[str,list[pysam.AlignedSegment]]"""
 
         for read in self.input_bam:
             if not read.is_paired and not read.is_proper_pair:
+                logging.debug("Skipping read {}".format(ReadMerger.key(read)))
                 continue
+
+            if self.last_chr is None or self.last_pos is None:
+                self.last_chr = read.reference_id
+                self.last_pos = read.pos
 
             key = ReadMerger.key(read)
             if key in reads:
@@ -57,28 +65,48 @@ class ReadMerger(object):
                 reads[key] = [read]
                 logging.debug("Added 1 read to reads {}".format(reads[key]))
 
-            if read.pos > last_pos or read.reference_id != last_chr:
-                keys = reads.keys()
-                for key in keys:
-                    reads_to_merge = reads[key]
-                    logging.debug("Key is {}".format(key))
-                    logging.debug("Current chr:pos is {}:{}".format(read.reference_id, read.pos))
-                    logging.debug("Reads to merge are {}".format(reads_to_merge))
-                    merged_read = ReadMerger.merge(reads[key], self.max_qual, self.fraction_agree)
-                    self.output_bam.write(merged_read)
-                    self.update_metrics(reads[key])
-                    del reads[key]
-                last_pos = read.pos
-                last_chr = read.reference_id
+            if read.pos > self.last_pos or read.reference_id != self.last_chr:
+                logging.debug("Current chr:pos is {}:{}".format(read.reference_id, read.pos))
+                self.work_on_reads(reads)
+                self.last_pos = read.pos
+                self.last_chr = read.reference_id
 
             self.n_reads_traversed += 1
 
             if self.n_reads_traversed % self.reads_between_logs == 0:
                 self.log_traversal_status()
 
+        self.work_on_reads(reads)
+
         self.log_final_status()
+        self.metrics.update_pct_duplicated()
         logging.info(self.metrics.dict())
         return 0
+
+    def work_on_reads(self, reads):
+        """
+        Check if there are any duplicates to be merged in reads
+        :param reads: dict[str, list[pysam.AlignedSegment]]
+        :return: None
+        """
+        keys = reads.keys()
+        for key in keys:
+            reads_to_merge = reads[key]
+            for r in reads_to_merge:
+                self.name_translation_table[r.qname] = reads_to_merge[0].qname
+            logging.debug("Key is {}".format(key))
+            logging.debug("Reads to merge are {}".format(reads_to_merge))
+            merged_read = ReadMerger.merge(reads[key], self.max_qual, self.fraction_agree)
+
+            # rename read so that pairs match in the final file
+            if merged_read.qname in self.name_translation_table:
+                merged_read.qname = self.name_translation_table[merged_read.qname]
+
+            self.output_bam.write(merged_read)
+            self.update_metrics(reads[key])
+            del reads[key]
+
+
 
     def update_metrics(self, reads):
         """
@@ -122,8 +150,9 @@ class ReadMerger(object):
         curr_time = datetime.now()
         time_since_start = curr_time - self.start_time
         time_since_start = time_since_start.seconds + time_since_start.microseconds/1E6
-        logging.info("Traversed total {n} reads in {t} seconds at an average rate of {x} reads per second".format(
-            n=self.n_reads_traversed, t=time_since_start, x=self.n_reads_traversed/time_since_start
+        logging.info(
+            "Traversed total {n} reads in {t} seconds at an average rate of {x} reads per second".format(
+                n=self.n_reads_traversed, t=time_since_start, x=self.n_reads_traversed/time_since_start
             ))
         self.last_time = curr_time
         self.last_n_reads_traversed = self.n_reads_traversed
@@ -158,15 +187,22 @@ class ReadMerger(object):
     @staticmethod
     def key(read):
         """
-        Get a unique identifier read based on chr/pos/strand of the read and it's mate. If two reads have identical keys, they are PCR duplicates.
+        Get a unique identifier read based on chr/pos/strand of the read and it's mate.
+        If two reads have identical keys, they are PCR duplicates.
         :type read: pysam.AlignedSegment
         :return: str
         """
+
+        # query_alignment_start is the index of the first
+        # non-soft-clipped base in the sequence (0 for non-soft-clipped reads)
+        readgroup = None
+        if read.has_tag('RG'):
+            readgroup = read.get_tag('RG')
         return "{chr}_{pos}_{matepos}_{strand}_{readgroup}".format(
             chr=read.reference_id,
-            pos=read.pos-read.query_alignment_start, #  query_alignment_start is the index of the first non-soft-clipped base in the sequence (0 for non-soft-clipped reads)
+            pos=read.pos-read.query_alignment_start,
             matepos=read.mpos,
             strand=read.is_reverse,
-            readgroup=read.get_tag('RG')
+            readgroup=readgroup
         )
 

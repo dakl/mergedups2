@@ -1,13 +1,14 @@
 """
-Containers for merge duplicate metrics, such as nubmer of reads, number of dups, pct dups etc
+Containers for merge duplicate metrics, such as nubmer of reads,
+number of dups, pct dups etc
 """
-import pysam
 
 __author__ = 'dankle'
 
 class ReadMergerMetrics(object):
     """
-    contains metrics from a bam file
+    contains metrics from a bam file. Holds a LibraryMetrics instance
+    for each RG tag found in the bam file
     """
     def __init__(self):
         self.libraries = {}
@@ -24,11 +25,22 @@ class ReadMergerMetrics(object):
             self.libraries[readgroup] = LibraryMetrics()
         self.libraries[readgroup].update_metrics(read)
 
+    def update_pct_duplicated(self):
+        """
+        updated the estimated percent duplication
+        :return:
+        """
+        for readgroup in self.libraries:
+            self.libraries[readgroup].update_pct_duplicated()
+
     def dict(self):
-        r = {}
+        """
+        Return a dictionary representation of the ReadMergerMetrics object
+        """
+        as_dict = {}
         for lib in self.libraries:
-            r[lib] = self.libraries[lib].dict()
-        return r
+            as_dict[lib] = self.libraries[lib].dict()
+        return as_dict
 
 class LibraryMetrics(object):
     """
@@ -36,14 +48,14 @@ class LibraryMetrics(object):
     """
     def __init__(self):
         self.stats = {}
-        self.UNPAIRED_READS_EXAMINED = 0
-        self.READ_PAIRS_EXAMINED = 0
-        self.UNMAPPED_READS = 0
-        self.UNPAIRED_READ_DUPLICATES = 0
-        self.READ_PAIR_DUPLICATES = 0
-        self.READ_PAIR_OPTICAL_DUPLICATES = 0
-        self.PERCENT_DUPLICATION = 0.0
-        self.ESTIMATED_LIBRARY_SIZE = 0
+        self.unpaired_reads_examined = 0
+        self.read_pairs_examined = 0
+        self.unmapped_reads = 0
+        self.unpaired_read_duplicates = 0
+        self.read_pair_duplicates = 0
+        self.read_pair_optical_duplicates = 0
+        self.percent_duplication = 0.0
+        self.estimated_library_size = 0
 
     def update_metrics(self, read):
         """
@@ -52,27 +64,38 @@ class LibraryMetrics(object):
         :return: None
         """
         if read.is_unmapped:
-            self.UNMAPPED_READS += 1
-        elif (not read.is_paired) or read.mate_is_unmapped:  ## read is single end or mate is unmapped
-            self.UNPAIRED_READS_EXAMINED
+            self.unmapped_reads += 1
+        elif (not read.is_paired) or \
+                read.mate_is_unmapped:  # read is single end or mate is unmapped
+            self.unpaired_reads_examined += 1
             if read.is_duplicate:
-                self.UNPAIRED_READ_DUPLICATES += 1
-        else: ## read is PE and both mates are mapped
-            if read.is_read1: ## only update metrics for reads that are the first in a pair.
-                self.READ_PAIRS_EXAMINED += 1
+                self.unpaired_read_duplicates += 1
+        else:  # read is PE and both mates are mapped
+            if read.is_read1:  # only update metrics for reads that are the first in a pair.
+                self.read_pairs_examined += 1
                 if read.is_duplicate:
-                    self.READ_PAIR_DUPLICATES += 1
+                    self.read_pair_duplicates += 1
 
-        if self.READ_PAIRS_EXAMINED+self.UNPAIRED_READS_EXAMINED > 0:
-            self.PERCENT_DUPLICATION = (0.0 + self.READ_PAIR_DUPLICATES + self.UNPAIRED_READ_DUPLICATES) / (0.0 + self.READ_PAIRS_EXAMINED+self.UNPAIRED_READS_EXAMINED)
+    def update_pct_duplicated(self):
+        """
+        updated the estimated percent duplication
+        :return:
+        """
+        if self.read_pairs_examined+self.unpaired_reads_examined > 0:
+            numer = 0.0 + self.read_pair_duplicates + self.unpaired_read_duplicates
+            denom = 0.0 + self.read_pairs_examined + self.unpaired_reads_examined
+            self.percent_duplication = numer / denom
 
     def dict(self):
-        return {'UNPAIRED_READS_EXAMINED':self.UNPAIRED_READS_EXAMINED,
-                'READ_PAIRS_EXAMINED': self.READ_PAIRS_EXAMINED,
-                'UNMAPPED_READS': self.UNMAPPED_READS,
-                'UNPAIRED_READ_DUPLICATES': self.UNPAIRED_READ_DUPLICATES,
-                'READ_PAIR_DUPLICATES': self.READ_PAIR_DUPLICATES,
-                'READ_PAIR_OPTICAL_DUPLICATES': self.READ_PAIR_OPTICAL_DUPLICATES,
-                'PERCENT_DUPLICATION': self.PERCENT_DUPLICATION,
-                'ESTIMATED_LIBRARY_SIZE': self.ESTIMATED_LIBRARY_SIZE
-        }
+        """
+        Return a dictionary representation of the LibraryMetrics object
+        :return:
+        """
+        return {'UNPAIRED_READS_EXAMINED':self.unpaired_reads_examined,
+                'READ_PAIRS_EXAMINED': self.read_pairs_examined,
+                'UNMAPPED_READS': self.unmapped_reads,
+                'UNPAIRED_READ_DUPLICATES': self.unpaired_read_duplicates,
+                'READ_PAIR_DUPLICATES': self.read_pair_duplicates,
+                'READ_PAIR_OPTICAL_DUPLICATES': self.read_pair_optical_duplicates,
+                'PERCENT_DUPLICATION': self.percent_duplication,
+                'ESTIMATED_LIBRARY_SIZE': self.estimated_library_size}

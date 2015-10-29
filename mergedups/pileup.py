@@ -65,11 +65,12 @@ class Pileup(object):
                 qual_sum = max_qual
         else:
             most_common_base = self.most_common_base()
-            idx = [i for i,x in enumerate(self.bases()) if x == most_common_base]  # which(bases == most_common_base) in python
+            # which(bases == most_common_base) in python
+            idx = [i for i,x in enumerate(self.bases()) if x == most_common_base]
 
-            if len(idx) >= fraction_agree*len(self.bases()):  # if at least the given fraction of the reads support the most common base
-                quals_for_most_common_base = [self.quals()[i] for i in idx]
-                qual_sum = sum( [self.quals()[i] for i in idx])
+            # if at least the given fraction of the reads support the most common base
+            if len(idx) >= fraction_agree*len(self.bases()):
+                qual_sum = sum([self.quals()[i] for i in idx])
                 if qual_sum > max_qual:
                     qual_sum = max_qual
                 base = most_common_base
@@ -83,4 +84,4 @@ class Pileup(object):
 
     @staticmethod
     def from_reads(reads, pos):
-        return Pileup([PileupElement(read.seq[pos],phred=read.qual[pos]) for read in reads if len(read.seq)>pos])
+        return Pileup([PileupElement(read.seq[pos], phred=read.qual[pos]) for read in reads if len(read.seq) > pos])

@@ -32,7 +32,7 @@ def test_pileup_element():
     assert pe.base == 'A'
 
     pe = PileupElement('G', None)
-    assert pe.phredqual() == None
+    assert pe.phredqual() is None
     assert pe.base == 'G'
 
     pe = PileupElement('T', phred='I')
@@ -46,27 +46,5 @@ def test_pileup():
     assert pileup.bases() == ['A', 'A', 'G']
     assert pileup.quals() == [40, 20, None]
     assert pileup.most_common_base() == 'A'
-
-    merged_pileup_elements = []
-    """ :type: list[PileupElement] """
-    pileups = []
-    """ :type: list[Pileup] """
-    reads = [my_read, my_read2, my_read3, my_read4]
-    for k in range(0, 4):
-        pile = Pileup.from_reads(reads, k)
-        pileups.append(pile)
-        merged_pileup_elements.append(pile.merge(max_qual=45, fraction_agree=0.75))
-
-    # test that ties gives N
-    assert merged_pileup_elements[0].base == 'N'  # tie, 2xA 2xG
-    # test that majority vote works
-    assert merged_pileup_elements[1].base == 'G'  # G wins from 3xG 1xA
-
-    # test all 4 bases that were merged
-    assert "".join([pe.base for pe in merged_pileup_elements]) == 'NGCT'
-    # test that qualities were properly merged
-    assert [pe.qual for pe in merged_pileup_elements] == [2, 45, 45, 45]
-    # test that the size of each pileup works
-    assert [len(p.bases()) for p in pileups] == [4,4,4,3]
 
 
