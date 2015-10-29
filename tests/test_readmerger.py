@@ -110,7 +110,7 @@ def test_merge():
     tmpfilename = tempfile.mkstemp('.bam')[1]
     outfile = pysam.AlignmentFile(tmpfilename, "wb", header=header)
     mf = "/tmp/bla.metrics.txt"
-    readmerger = ReadMerger([a, b], outfile, mf, 0.75, 45, 3)
+    readmerger = ReadMerger([a, b], outfile, mf, 0.75, 45, 1)
     exitcode = readmerger.do_work()
     assert exitcode == 0
     metrics = readmerger.metrics.dict()
