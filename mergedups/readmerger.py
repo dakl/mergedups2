@@ -12,12 +12,11 @@ class ReadMerger(object):
     Class that merges `pysam.AlignedSegment`s.
     """
 
-    def __init__(self, input_bam, output_bam, metrics_file,
+    def __init__(self, input_bam, output_bam,
                  fraction_agree, max_qual, reads_between_logs):
         """
         :type input_bam: pysam.AlignmentFile
         :type output_bam: pysam.AlignmentFile
-        :type metrics_file: str
         :type fraction_agree: float
         :type max_qual: int
         :type reads_between_logs: int
@@ -25,7 +24,6 @@ class ReadMerger(object):
         """
         self.input_bam = input_bam
         self.output_bam = output_bam
-        self.metrics_file = metrics_file
         self.fraction_agree = fraction_agree
         self.max_qual = max_qual
         self.reads_between_logs = reads_between_logs

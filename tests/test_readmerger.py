@@ -1,3 +1,4 @@
+import os
 import tempfile
 import pysam
 from mergedups.pileup import Pileup
@@ -73,10 +74,12 @@ b.tags = (("NM", 1),
 b.is_paired = True
 b.is_proper_pair = True
 
+
 def test_key():
     expected_key = "0_32_250_True_L1"
     key = ReadMerger.key(my_read)
     assert key == expected_key
+
 
 def test_merge():
     merged_pileup_elements = []
@@ -109,12 +112,14 @@ def test_merge():
 
     tmpfilename = tempfile.mkstemp('.bam')[1]
     outfile = pysam.AlignmentFile(tmpfilename, "wb", header=header)
-    mf = "/tmp/bla.metrics.txt"
-    readmerger = ReadMerger([a, b], outfile, mf, 0.75, 45, 1)
+    readmerger = ReadMerger([a, b], outfile, fraction_agree=0.75, max_qual=45, reads_between_logs=1)
     exitcode = readmerger.do_work()
     assert exitcode == 0
     metrics = readmerger.metrics.dict()
     assert 'L1' in metrics
+    os.remove(tmpfilename)
     # assert metrics['L1'] == {}
     #['L1']['READ_PAIR_DUPLICATES'] == 2
 
+test_key()
+test_merge()

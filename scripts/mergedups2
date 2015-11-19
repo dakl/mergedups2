@@ -5,12 +5,14 @@ A tool to reduce sequencing error rate by merging PCR duplicates rather removing
 It only works on paired end reads.
 """
 import argparse
+import json
 import logging
 import sys
 import pysam
 from mergedups.readmerger import ReadMerger
 
 __author__ = 'dankle'
+
 
 def main():
     opts=parse_cli()
@@ -19,10 +21,14 @@ def main():
     input_bam = pysam.AlignmentFile(opts.I, 'rb')
     output_bam = pysam.AlignmentFile(opts.O, 'wb', template=input_bam)
 
-    readmerger = ReadMerger(input_bam, output_bam, opts.metrics_file,
+    readmerger = ReadMerger(input_bam, output_bam,
                             opts.fraction_agree, opts.max_qual, opts.reads_between_logs)
 
     exit_code = readmerger.do_work()
+
+    metrics_fh = open(opts.x, 'w')
+    metrics_fh.write(json.dumps(readmerger.metrics.dict()))
+    metrics_fh.close()
 
     input_bam.close()
     output_bam.close()
@@ -47,6 +53,7 @@ def parse_cli():
 
     return ap.parse_args()
 
+
 def setup_logging(loglevel="INFO"):
     """
     Set up logging
@@ -58,6 +65,7 @@ def setup_logging(loglevel="INFO"):
     logging.basicConfig(level=numeric_level,
                         format='%(levelname)s %(asctime)s %(funcName)s - %(message)s')
     logging.info("Started log with loglevel %(loglevel)s" % {"loglevel":loglevel})
+
 
 if __name__ == "__main__":
     sys.exit(main())

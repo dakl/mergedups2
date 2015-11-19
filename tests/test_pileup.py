@@ -48,3 +48,5 @@ def test_pileup():
     assert pileup.most_common_base() == 'A'
 
 
+test_pileup_element()
+test_pileup()
