@@ -26,8 +26,8 @@ def main():
 
     exit_code = readmerger.do_work()
 
-    metrics_fh = open(opts.x, 'w')
-    metrics_fh.write(json.dumps(readmerger.metrics.dict()))
+    metrics_fh = open(opts.metrics_file, 'w')
+    metrics_fh.write(json.dumps(readmerger.metrics.dict(), indent=4))
     metrics_fh.close()
 
     input_bam.close()
