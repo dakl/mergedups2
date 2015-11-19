@@ -12,7 +12,7 @@ except ImportError:
 long_description = 'read merged for PCR duplicates'
 
 setup(name='mergedups2',
-    version='0.0.1',
+    version='0.0.2',
     description='Reduce sequencing error rates by merging PCR duplicates',
     author = 'Daniel Klevebring',
     author_email = 'daniel.klevebring@gmail.com',
